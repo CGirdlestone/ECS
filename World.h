@@ -17,9 +17,11 @@ const int MAX_ENTITIES{ 512 };
 
 template <class Component>
 int GetID() {
+	/* Increase the static component counter for each new component type used. */
 	if (component_counter == MAX_COMPONENTS) {
 		throw std::runtime_error("Max number of components exceeded.");
 	}
+
 	static int component_id = component_counter++;
 	return component_id;
 }
@@ -45,44 +47,44 @@ private:
 	EntityList m_free_entities;
 
 	void Flip(uint64_t& entity, int n) {
-		// flip the nth bit of entity
+		/* Flip the nth bit of entity. */
 		entity ^= ((uint64_t)1 << n);
 	}
 
 	void Zero(uint64_t& entity, int n) {
-		// Zero the nth bit of entity
+		/* Zero the nth bit of entity. */
 		entity &= ((uint64_t)0 << n);
 	}
 
 	int Extract(uint64_t entity, int n) {
-		// extract the nth bit of entity
+		/* Extract the nth bit of entity. */
 		return (entity >> n) & 1;
 	}
 
 	uint16_t GetEntityID(uint64_t entity) {
-		// return the top 16 bits of entity
+		/* Get the top 16 bits of entity. */
 		return (uint16_t)(entity >> 48);
 	}
 
 	void SetEntityID(uint64_t& entity, uint16_t id) {
-		// set the top 16 bits of uint16_t to the bit pattern of id
+		/* Set the upper 16 bits of uint16_t to the bit pattern of id. */
 		entity = ((entity >> 48) | id) << 48;
 	}
 
 	uint16_t GetEntityVersion(uint64_t entity) {
-		// return the 3rd set of 16 bits
+		/* Get the 3rd set of 16 bits. */
 		return (uint16_t)((entity << 16) >> 48);
 	}
 
 	void IncreaseEntityVersion(uint64_t& entity) {
-		// Overwrite the version (3rd set of 16 bits) with the previous value + 1.
+		/* Overwrite the version (3rd set of 16 bits) with the previous value + 1. */
 		uint16_t current_version = GetEntityVersion(entity);
 		current_version++;
 		entity = (((entity >> 32) & (0 << 16)) | current_version) << 32;
 	}
 
 	uint64_t NewEntity() {
-		// Generates a completely new entity
+		/* Generate a completely new entity. */
 		uint64_t entity{ 0 };
 		uint16_t uid = m_entity_counter++;
 
@@ -91,10 +93,19 @@ private:
 		return entity;
 	};
 
+	uint64_t RecycleEntity() {
+		/* Retrieve an entity from the free entities pool. */
+		uint64_t entity = m_free_entities.back();
+		m_free_entities.pop_back();
+
+		return entity;
+	}
+
 public:
 	World() {};
 
 	~World() {
+
 		std::map<int, ComponentPool>::iterator it;
 		for (it = m_component_pools.begin(); it != m_component_pools.end(); it++) {
 			auto& pool = it->second;
@@ -108,6 +119,7 @@ public:
 	};
 
 	void test_destructor() {
+		/* Only used for testing the destructor code. */
 		std::map<int, ComponentPool>::iterator it;
 		for (it = m_component_pools.begin(); it != m_component_pools.end(); it++) {
 			auto& pool = it->second;
@@ -121,12 +133,11 @@ public:
 	}
 
 	uint64_t CreateEntity() {
-		// Creates a new entity by recycling an 'killed' id, or by creating a new id
+		/* Create a new entity by recycling an 'killed' id, or by creating a new id. */
 		uint64_t entity;
 
 		if (!m_free_entities.empty()) {
-			entity = m_free_entities.back();
-			m_free_entities.pop_back();
+			entity = RecycleEntity();
 
 			IncreaseEntityVersion(entity);
 			m_entities[GetEntityID(entity)] = entity;
@@ -140,22 +151,24 @@ public:
 
 	template <class Component>
 	void AddComponent(uint64_t& entity) {
+		/* Create an instance of Component type and ties it to the specified entity. */
 		uint16_t entity_id = GetEntityID(entity);
 		int component_id = GetID<Component>();
 		
+		// Set the associated bit (if the entity doesn't have this component already).
 		if (Extract(entity, component_id) == 0) {
 			Flip(entity, component_id);
 			m_entities[entity_id] = entity;
 		}
 		
 		if (m_component_pools.find(component_id) == m_component_pools.end()) {
-			// first instance of this Component, so create a new ComponentPool and fill it with nullptr
+			// First use of this Component, so create a new ComponentPool and fill it with nullptr.
 			ComponentPool component{ nullptr };
 			component.fill(nullptr);
 			m_component_pools.insert({ component_id, component });
 		}
 
-		// if this entity already has a leftover component instance from the previous version, delete it
+		// If this entity already has a leftover component instance from the previous version, delete it.
 		if (m_component_pools.at(component_id)[entity_id] != nullptr) {
 			delete m_component_pools.at(component_id)[entity_id];
 		}
@@ -165,26 +178,32 @@ public:
 
 	template <class Component>
 	bool HasComponent(uint64_t entity) {
+		/* Query whether the specified entity has the given component. */
 		int component_id = GetID<Component>();
+
 		return Extract(entity, component_id) == 1;
 	}
 
 	template <typename Component>
 	Component* GetComponent(uint64_t entity) {
-
+		/* Retrieves a pointer to the given component that is associated with the specified entity.
+		*  If that entity does not have a component of that type, nullptr is returned 
+		*/
 		int component_id = GetID<Component>();
+
+		Component* p_component{ nullptr };
 		
 		if (Extract(entity, component_id) == 1) {
 			uint16_t entity_id = GetEntityID(entity);
-			return (Component*)m_component_pools.at(component_id)[entity_id];
+			p_component = (Component*)m_component_pools.at(component_id)[entity_id];
 		}
-		else {
-			return nullptr;
-		}
+		
+		return p_component;
 	}
 
 	template <typename Component>
 	void RemoveComponent(uint64_t& entity) {
+		/* If the entity has a component of this type, it is deleted, otherwise nothing happens. */
 		uint16_t entity_id = GetEntityID(entity);
 		int component_id = GetID<Component>();
 
@@ -197,15 +216,17 @@ public:
 	}
 
 	void KillEntity(uint64_t& entity) {
-		// Zeros the entity's component mask and then moves it id to the free entities vector ready for re-use 
+		/* Zeros the entity's component mask and then moves it id to the free entities vector ready for re-use. */
 		for (int i = 0; i < component_counter; i++) {
 			Zero(entity, i);
 		}
+
 		m_free_entities.push_back(entity);
 	}
 
 	template <typename Component>
 	EntityList GetEntitiesWith() {
+		/* Gets all the entities which have the specified component. */
 		EntityList _entities;
 		int component_id = GetID<Component>();
 		
@@ -220,6 +241,7 @@ public:
 
 	template <typename Component1, typename Component2>
 	EntityList GetEntitiesWith() {
+		/* Gets all the entities which have both specified components. */
 		EntityList _entities;
 		int component1_id = GetID<Component1>();
 		int component2_id = GetID<Component2>();
@@ -235,6 +257,7 @@ public:
 
 	template <typename Component1, typename Component2, typename Component3>
 	EntityList GetEntitiesWith() {
+		/* Gets all the entities which have all three specified components. */
 		EntityList _entities;
 		int component1_id = GetID<Component1>();
 		int component2_id = GetID<Component2>();
