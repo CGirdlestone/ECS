@@ -2,7 +2,7 @@
 
 This is a templated, header only Entity-Component-System implementation (minus the system part) to support composition over inheritance for games.
 
-Entities are represented by an unsigned 64 bit integer containing a unique ID (the uppermost 16 bits), a version number (for system to validate against) (another 16 bits)
+Entities are represented by an unsigned 64 bit integer containing a unique ID (the uppermost 16 bits), a version number (for systems to validate against) (another 16 bits)
 and a 32-bit component mask (for a maximum of 32 components). 
 
 The entity unique ID is used to index into the component array allowing the entity to be tied to it's associated components.
