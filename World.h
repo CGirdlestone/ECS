@@ -17,7 +17,7 @@ const int MAX_ENTITIES{ 512 };
 
 template <class Component>
 int GetID() {
-	/* Increase the static component counter for each new component type used. */
+	/* Increase the static component counter for each new component type used up to a maximum of MAX_COMPONENTS. */
 	if (component_counter == MAX_COMPONENTS) {
 		throw std::runtime_error("Max number of components exceeded.");
 	}
@@ -80,7 +80,7 @@ private:
 		/* Overwrite the version (3rd set of 16 bits) with the previous value + 1. */
 		uint16_t current_version = GetEntityVersion(entity);
 		current_version++;
-		entity = (((entity >> 32) & (0 << 16)) | current_version) << 32;
+		entity = (((entity >> 32) & (0 << 16)) | (GetEntityVersion(entity) + 1)) << 32;
 	}
 
 	uint64_t NewEntity() {
@@ -225,52 +225,41 @@ public:
 	}
 
 	template <typename Component>
-	EntityList GetEntitiesWith() {
+	void GetEntitiesWith(EntityList& entities) {
 		/* Gets all the entities which have the specified component. */
-		EntityList _entities;
 		int component_id = GetID<Component>();
 		
 		for (uint16_t i = 0; i < m_entity_counter; i++) {
 			if (Extract(m_entities[i], component_id) == 1) {
-				_entities.push_back(m_entities[i]);
+				entities.push_back(m_entities[i]);
 			}
 		}
-
-		return _entities;
 	}
 
 	template <typename Component1, typename Component2>
-	EntityList GetEntitiesWith() {
+	void GetEntitiesWith(EntityList& entities) {
 		/* Gets all the entities which have both specified components. */
-		EntityList _entities;
 		int component1_id = GetID<Component1>();
 		int component2_id = GetID<Component2>();
 		
 		for (uint16_t i = 0; i < m_entity_counter; i++) {
 			if (Extract(m_entities[i], component1_id) == 1 && Extract(m_entities[i], component2_id)) {
-				_entities.push_back(m_entities[i]);
+				entities.push_back(m_entities[i]);
 			}
 		}
-
-		return _entities;
 	}
 
 	template <typename Component1, typename Component2, typename Component3>
-	EntityList GetEntitiesWith() {
+	void GetEntitiesWith(EntityList& entities) {
 		/* Gets all the entities which have all three specified components. */
-		EntityList _entities;
 		int component1_id = GetID<Component1>();
 		int component2_id = GetID<Component2>();
 		int component3_id = GetID<Component3>();
 
 		for (uint16_t i = 0; i < m_entity_counter; i++) {
 			if (Extract(m_entities[i], component1_id) == 1 && Extract(m_entities[i], component2_id) && Extract(m_entities[i], component3_id)) {
-				_entities.push_back(m_entities[i]);
+				entities.push_back(m_entities[i]);
 			}
 		}
-
-		return _entities;
 	}
-
-
 };

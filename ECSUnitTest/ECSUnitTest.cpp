@@ -146,7 +146,8 @@ namespace ECSUnitTest
 				world.AddComponent<Position>(entity);
 			}
 
-			EntityList entities = world.GetEntitiesWith<Position>();
+			EntityList entities;
+			world.GetEntitiesWith<Position>(entities);
 
 			Assert::AreEqual(num_entities, entities.size());
 		}
@@ -164,7 +165,8 @@ namespace ECSUnitTest
 				}
 			}
 
-			EntityList entities = world.GetEntitiesWith<Position, MeshRenderer>();
+			EntityList entities;
+			world.GetEntitiesWith<Position, MeshRenderer>(entities);
 
 			Assert::AreEqual(num_entities/2, entities.size());
 		}
@@ -184,7 +186,8 @@ namespace ECSUnitTest
 				}
 			}
 
-			EntityList entities = world.GetEntitiesWith<Position, MeshRenderer, AI>();
+			EntityList entities;
+			world.GetEntitiesWith<Position, MeshRenderer, AI>(entities);
 
 			Assert::AreEqual(num_entities / 3, entities.size());
 		}
@@ -221,6 +224,22 @@ namespace ECSUnitTest
 			uint16_t zero{ 0 };
 
 			Assert::IsTrue(zero == id);
+		}
+
+		TEST_METHOD(CheckVersionIncrease)
+		{
+			World world;
+			uint64_t e1 = world.CreateEntity(); // id 0
+			uint64_t e2 = world.CreateEntity(); // id 1
+
+			world.KillEntity(e1); // move id 0 into pool of free entities
+
+			uint64_t e3 = world.CreateEntity(); // should be version 1 and not version 0
+
+			uint16_t version = (e3 << 16) >> 48;
+			uint16_t expected_version{ 1 };
+
+			Assert::IsTrue(expected_version == version);
 		}
 
 		TEST_METHOD(AddComponentToRecylcedEntity)
