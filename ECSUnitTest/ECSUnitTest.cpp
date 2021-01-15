@@ -68,6 +68,17 @@ namespace ECSUnitTest
 			Assert::AreEqual(true, has_component);
 		}
 
+		TEST_METHOD(AddAndConstructComponent)
+		{
+			World world;
+			uint64_t entity = world.CreateEntity(); // entity with uid 0
+			world.AddComponent<Position>(entity, 1.0f, 1.0f, 1.0f);
+
+			Position* p = world.GetComponent<Position>(entity);
+
+			Assert::AreEqual(1.0f, p->x);
+		}
+
 		TEST_METHOD(GetComponent)
 		{
 			World world;

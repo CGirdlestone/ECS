@@ -149,8 +149,8 @@ public:
 		return entity;
 	}
 
-	template <class Component>
-	void AddComponent(uint64_t& entity) {
+	template <class Component, typename... Args>
+	void AddComponent(uint64_t& entity, Args... args) {
 		/* Create an instance of Component type and ties it to the specified entity. */
 		uint16_t entity_id = GetEntityID(entity);
 		int component_id = GetID<Component>();
@@ -173,7 +173,7 @@ public:
 			delete m_component_pools.at(component_id)[entity_id];
 		}
 
-		m_component_pools.at(component_id)[entity_id] = new Component();
+		m_component_pools.at(component_id)[entity_id] = new Component(std::forward<Args>(args)...);
 	}
 
 	template <class Component>
