@@ -15,8 +15,11 @@ To use this ECS implementation, include the World.h header file in your project 
 
     World world;
 
-With regards to components, ensure they inherit from `<IComponent>` (no methods defined) and don't create a constructor. I intend to implement forwarding of arguments to allow 
-components to be fully constructed whilst adding it to an entity. At the moment, it has to be done after the empty component is added to the entity. 
+With regards to components, ensure they inherit from `<IComponent>` (no methods defined) and don't create a constructor. 
+<del> I intend to implement forwarding of arguments to allow components to be fully constructed whilst adding it to an entity. At the moment, it has to be done after the empty component is added to the entity. </del> 
+
+Arguments can now be supplied 
+when adding the component.
 
     struct YourComponent : IComponent
     {
@@ -29,7 +32,8 @@ To create an entity, use the `<CreateEntity>` method. This will either create a 
     
 Component types are registered on first use, and components can be added thusly.
 
-    world.AddComponent<YourComponent>(entity);
+    world.AddComponent<YourComponent>(entity); // uses default constructor - will requires setting the data separately.
+    world.AddComponent<YourComponent>(entity, arg1, arg2, arg3, ...); // forwards the supplied arguments and uses the defined constructor.
 
 Currently, components can only be added signularly. If you would like to remove a component, it's done the same as above, but using the `<RemoveComponent<YourComponent>(entity)>`
 method.
