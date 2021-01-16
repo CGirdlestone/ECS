@@ -168,7 +168,7 @@
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ECS\ECS.vcxproj">
+    <ProjectReference Include="..\ECS.vcxproj">
       <Project>{b7586070-d9fe-4483-95c3-02777594cb4a}</Project>
     </ProjectReference>
   </ItemGroup>

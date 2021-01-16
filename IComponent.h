@@ -37,5 +37,19 @@ struct AI : IComponent
 	virtual ~AI() {};
 };
 
+struct RigidBody : IComponent
+{
+	virtual ~RigidBody() {};
+};
+
+struct Sprite : IComponent
+{
+	virtual ~Sprite() {};
+};
+
+struct Model : IComponent
+{
+	virtual ~Model() {};
+};
 
 
