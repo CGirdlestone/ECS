@@ -139,7 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="IComponent.h" />
+    <ClInclude Include="Components.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>
   <ItemGroup>

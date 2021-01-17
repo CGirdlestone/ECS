@@ -46,7 +46,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto e = world.CreateEntity();
-			uint64_t zero{ 0 };
+			uint32_t zero{ 0 };
 			
 			Assert::AreEqual(zero, e);
 		}
@@ -56,8 +56,8 @@ namespace ECSUnitTest
 			World world;
 			world.CreateEntity(); // entity with uid 0
 			auto e = world.CreateEntity(); // entity with uid 1
-			uint64_t val{ 0 };
-			val ^= static_cast<uint64_t>(1) << 48; // uid starts at bit 48, so shift and flip 
+			uint32_t val{ 0 };
+			val ^= static_cast<uint32_t>(1) << 16; // uid starts at bit 48, so shift and flip 
 			
 			Assert::AreEqual(val, e);
 		}
@@ -222,7 +222,6 @@ namespace ECSUnitTest
 				}
 			}
 			
-
 			EntityList entities;
 			world.GetEntitiesWith<Position, MeshRenderer, AI>(entities);
 
@@ -244,7 +243,8 @@ namespace ECSUnitTest
 			auto* p = world.GetComponent<Position>(e2); // this should be nullptr from the KillEntity method
 			auto* m = world.GetComponent<MeshRenderer>(e2); // as should this
 
-			Assert::IsTrue((IComponent*)p == (IComponent*)m); // cast to IComponent and compare nullptr == nullptr
+			Assert::IsNull(p);
+			Assert::IsNull(m);
 		}
 
 		TEST_METHOD(RecycleEntity)
@@ -301,7 +301,7 @@ namespace ECSUnitTest
 		TEST_METHOD(PackedArraySwap) 
 		{
 			World world;
-			uint64_t entities[4];
+			uint32_t entities[4];
 			for (int i = 0; i < 4; i++) {
 				entities[i] = world.CreateEntity();
 				world.AddComponent<Position>(entities[i], (float)i * 2, (float)i * 2, (float)i * 2);
@@ -322,7 +322,7 @@ namespace ECSUnitTest
 		TEST_METHOD(AddComponentAfterPackedArraySwap)
 		{
 			World world;
-			uint64_t entities[4];
+			uint32_t entities[4];
 			for (int i = 0; i < 4; i++) {
 				entities[i] = world.CreateEntity();
 				world.AddComponent<Position>(entities[i], (float)i * 2, (float)i * 2, (float)i * 2);

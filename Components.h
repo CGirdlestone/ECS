@@ -1,13 +1,6 @@
 #pragma once
 
-
-
-struct IComponent
-{
-	virtual ~IComponent() {};
-};
-
-struct Position : IComponent
+struct Position
 {
 	Position()
 	{
@@ -25,29 +18,29 @@ struct Position : IComponent
 	
 };
 
-struct MeshRenderer : IComponent
+struct MeshRenderer
 {
 	
 	virtual ~MeshRenderer() {};
 };
 
-struct AI : IComponent
+struct AI
 {
 
 	virtual ~AI() {};
 };
 
-struct RigidBody : IComponent
+struct RigidBody
 {
 	virtual ~RigidBody() {};
 };
 
-struct Sprite : IComponent
+struct Sprite
 {
 	virtual ~Sprite() {};
 };
 
-struct Model : IComponent
+struct Model
 {
 	virtual ~Model() {};
 };

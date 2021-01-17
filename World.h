@@ -10,15 +10,15 @@
 #include <stdexcept>
 #include <cstring>
 
-#include "IComponent.h"
+#include "Components.h"
 
 const int MAX_COMPONENTS{ 40 };
 const int MAX_ENTITIES{ 16382 }; // (2^14 - 1) - 1
 
 /*
-* Entity - 64 bits
+* Entity - 32 bits
 * 
-* | 16 bits			|	8 bits		|	40 bits				| 
+* | 16 bits			|	8 bits		|	8 bits				| 
 * | unique ID		|	version		|	currently unused	|
 * 
 */
@@ -74,7 +74,7 @@ struct Pool
 };
 
 
-using EntityList = std::vector<uint64_t>;
+using EntityList = std::vector<uint32_t>;
 using ComponentPool = std::vector<Pool*>;
 
 class World 
@@ -84,41 +84,41 @@ private:
 	std::map<int, std::array<uint16_t, MAX_ENTITIES>> m_sparse;
 	std::map<int, std::vector<uint16_t>> m_packed;
 	ComponentPool m_component_pools;
-	std::array<uint64_t, MAX_ENTITIES> m_entities{ 0 };
+	std::array<uint32_t, MAX_ENTITIES> m_entities{ 0 };
 	EntityList m_free_entities;
 	int component_counter{ 0 };
 
-	inline const uint16_t GetEntityID(const uint64_t entity) const {
+	inline const uint16_t GetEntityID(const uint32_t entity) const {
 		/* Get the top 16 bits of entity. */
-		return static_cast<uint16_t>(entity >> 48);
+		return static_cast<uint16_t>(entity >> 16);
 	}
 
-	inline void SetEntityID(uint64_t& entity, const uint16_t id) {
+	inline void SetEntityID(uint32_t& entity, const uint16_t id) {
 		/* Set the upper 16 bits of uint16_t to the bit pattern of id. */
-		entity = ((entity >> 48) | id) << 48;
+		entity = ((entity >> 16) | id) << 16;
 	}
 
-	inline uint8_t GetEntityVersion(const uint64_t entity) const {
+	inline uint8_t GetEntityVersion(const uint32_t entity) const {
 		/* Get the 3rd set of 16 bits. */
-		return static_cast<uint8_t>((entity << 16) >> 56);
+		return static_cast<uint8_t>((entity << 16) >> 24);
 	}
 
-	void IncreaseEntityVersion(uint64_t& entity) {
+	void IncreaseEntityVersion(uint32_t& entity) {
 		/* Overwrite the version (3rd set of 16 bits) with the previous 
 		*  value + 1. 
 		*/
 		auto current_version = GetEntityVersion(entity);
 		current_version++;
-		entity = (((entity >> 40) & (0 << 8) | current_version)) << 40;
+		entity = (((entity >> 8) & (0 << 8) | current_version)) << 8;
 	}
 
-	uint64_t NewEntity() {
+	uint32_t NewEntity() {
 		/* Generate a completely new entity. */
 		if (m_entity_counter == MAX_ENTITIES) {
 			throw std::runtime_error("Maximum number of entities reached!");
 		}
 
-		uint64_t entity{ 0 };
+		uint32_t entity{ 0 };
 		auto uid = m_entity_counter++;
 
 		SetEntityID(entity, uid);
@@ -126,12 +126,29 @@ private:
 		return entity;
 	};
 
-	uint64_t RecycleEntity() {
+	uint32_t RecycleEntity() {
 		/* Retrieve an entity from the free entities pool. */
 		auto entity = m_free_entities.back();
 		m_free_entities.pop_back();
 
 		return entity;
+	}
+
+	template <typename Component>
+	void InstantiatePool() {
+		const int component_id = GetID<Component>();
+		// First use of this Component, so create a new Pool.
+		auto* p = new Pool(MAX_ENTITIES, sizeof(Component));
+		m_component_pools.emplace_back(p);
+
+		// Create and populate the sparse array.
+		std::array<uint16_t, MAX_ENTITIES> sparse;
+		sparse.fill(MAX_ENTITIES + 1);
+		m_sparse.insert({ component_id, sparse });
+
+		// Create the packed array.
+		std::vector<uint16_t> packed;
+		m_packed.insert({ component_id, packed });
 	}
 
 	void SwapPackedEntities(const int component_id, const uint16_t entity_id, const uint16_t packed_index) {
@@ -147,7 +164,7 @@ private:
 		m_packed.at(component_id).pop_back();
 	}
 
-	void __RemoveComponent(const int component_id, uint64_t & entity) {
+	void __RemoveComponent(const int component_id, uint32_t & entity) {
 		const auto entity_id = GetEntityID(entity);
 
 		if (HasComponent(component_id, entity)) {
@@ -182,11 +199,11 @@ public:
 		}
 	}
 
-	uint64_t CreateEntity() {
+	uint32_t CreateEntity() {
 		/* Create a new entity by recycling an 'killed' id, 
 		*  or by creating a new id. 
 		*/
-		uint64_t entity;
+		uint32_t entity;
 
 		if (!m_free_entities.empty()) {
 			entity = RecycleEntity();
@@ -214,7 +231,7 @@ public:
 		return component_id;
 	}
 
-	bool HasComponent(const int component_id, const uint64_t entity) const {
+	bool HasComponent(const int component_id, const uint32_t entity) const {
 		/* Query whether the specified entity has the given component. */
 		if (m_sparse.find(component_id) == m_sparse.end()) {
 			// this component has never been added to an entity.
@@ -224,7 +241,7 @@ public:
 	}
 
 	template <typename Component, typename... Args>
-	void AddComponent(uint64_t& entity, Args... args) {
+	void AddComponent(uint32_t& entity, Args... args) {
 		/* Create an instance of Component type and ties it to the specified 
 		*  entity.
 		*/
@@ -234,32 +251,22 @@ public:
 		if (m_component_pools.empty() ||
 			m_component_pools.size() == component_id) {
 
-			// First use of this Component, so create a new Pool.
-			auto* p = new Pool(MAX_ENTITIES, sizeof(Component));
-			m_component_pools.emplace_back(p);
-
-			// create and populate the sparse array
-			std::array<uint16_t, MAX_ENTITIES> sparse;
-			sparse.fill(MAX_ENTITIES + 1);
-			m_sparse.insert({ component_id, sparse});
-			m_sparse.at(component_id)[entity_id] = 0;
-			
-			std::vector<uint16_t> packed;
-			packed.push_back(entity_id);
-			m_packed.insert({ component_id, packed });
+			// First use of this Component, so create a new Pool and associated sparse and packed 
+			// arrays.
+			InstantiatePool<Component>();
 		}
-		else {
-			auto packed_index = m_packed.at(component_id).size();
-			m_packed.at(component_id).push_back(entity_id);
-			m_sparse.at(component_id)[entity_id] = packed_index;
-		}
+		
+		auto packed_index = m_packed.at(component_id).size();
+		m_packed.at(component_id).push_back(entity_id);
+		m_sparse.at(component_id)[entity_id] = packed_index;
+		
 
 		auto* pool = m_component_pools.at(component_id);
 		pool->add<Component>(std::forward<Args>(args)...);
 	}
 
 	template <typename Component>
-	Component* GetComponent(const uint64_t entity) {
+	Component* GetComponent(const uint32_t entity) {
 		/* Retrieves a pointer to the given component that is associated 
 		*  with the specified entity. If that entity does not have a component 
 		*  of that type, nullptr is returned 
@@ -279,13 +286,13 @@ public:
 	}
 
 	template <typename Component>
-	void RemoveComponent(uint64_t& entity) {
+	void RemoveComponent(uint32_t& entity) {
 		/* If the entity has a component of this type, it is deleted, otherwise nothing happens. */
 		auto component_id = GetID<Component>();
 		__RemoveComponent(component_id, entity);
 	}
 
-	void KillEntity(uint64_t& entity) {
+	void KillEntity(uint32_t& entity) {
 		/* Sets all components to MAX_ENTITY + 1 to represent no component and 
 		*  then moves the id to the free entities vector ready for re-use.
 		*/
