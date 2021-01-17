@@ -45,7 +45,7 @@ namespace ECSUnitTest
 		TEST_METHOD(EntityCreation1)
 		{
 			World world;
-			uint64_t e = world.CreateEntity();
+			auto e = world.CreateEntity();
 			uint64_t zero{ 0 };
 			
 			Assert::AreEqual(zero, e);
@@ -55,9 +55,9 @@ namespace ECSUnitTest
 		{
 			World world;
 			world.CreateEntity(); // entity with uid 0
-			uint64_t e = world.CreateEntity(); // entity with uid 1
+			auto e = world.CreateEntity(); // entity with uid 1
 			uint64_t val{ 0 };
-			val ^= (uint64_t)1 << 48; // uid starts at bit 48, so shift and flip 
+			val ^= static_cast<uint64_t>(1) << 48; // uid starts at bit 48, so shift and flip 
 			
 			Assert::AreEqual(val, e);
 		}
@@ -65,38 +65,38 @@ namespace ECSUnitTest
 		TEST_METHOD(AddComponent)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity(); // entity with uid 0
+			auto entity = world.CreateEntity(); // entity with uid 0
 			world.AddComponent<Position>(entity);
 			//bool has_component = world.HasComponent<Position>(entity);
 			Assert::IsTrue(true);
 			//Assert::AreEqual(true, has_component);
 		}
 
-// 		TEST_METHOD(AddMultipleComponentAndCheckComponentIDs)
-// 		{
-// 			World world;
-// 			uint64_t entity = world.CreateEntity(); // entity with uid 0
-// 			// one call to GetID<Type> (component id of 0)
-// 			world.AddComponent<Position>(entity); 
-// 			world.AddComponent<MeshRenderer>(entity); 
-// 			world.AddComponent<AI>(entity);
-// 			world.AddComponent<RigidBody>(entity);
-// 			world.AddComponent<Sprite>(entity);
-// 			world.AddComponent<Model>(entity);
-// 
-// 			Assert::AreEqual(0, world.GetID<Position>());
-// 			Assert::AreEqual(1, world.GetID<MeshRenderer>());
-// 			Assert::AreEqual(2, world.GetID<AI>());
-// 			Assert::AreEqual(3, world.GetID<RigidBody>());
-// 			Assert::AreEqual(1, world.GetID<MeshRenderer>());
-// 			Assert::AreEqual(4, world.GetID<Sprite>());
-// 			Assert::AreEqual(5, world.GetID<Model>());
-// 		}
+		TEST_METHOD(AddMultipleComponentAndCheckComponentIDs)
+		{
+			World world;
+			auto entity = world.CreateEntity(); // entity with uid 0
+			// one call to GetID<Type> (component id of 0)
+			world.AddComponent<Position>(entity); 
+			world.AddComponent<MeshRenderer>(entity); 
+			world.AddComponent<AI>(entity);
+			world.AddComponent<RigidBody>(entity);
+			world.AddComponent<Sprite>(entity);
+			world.AddComponent<Model>(entity);
+
+			Assert::AreEqual(0, world.GetID<Position>());
+			Assert::AreEqual(1, world.GetID<MeshRenderer>());
+			Assert::AreEqual(2, world.GetID<AI>());
+			Assert::AreEqual(3, world.GetID<RigidBody>());
+			Assert::AreEqual(1, world.GetID<MeshRenderer>());
+			Assert::AreEqual(4, world.GetID<Sprite>());
+			Assert::AreEqual(5, world.GetID<Model>());
+		}
 
 		TEST_METHOD(AddAndConstructComponent)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity(); // entity with uid 0
+			auto entity = world.CreateEntity(); // entity with uid 0
 			world.AddComponent<Position>(entity, 1.0f, 1.0f, 1.0f);
 
 			auto* p = world.GetComponent<Position>(entity);
@@ -107,7 +107,7 @@ namespace ECSUnitTest
 		TEST_METHOD(GetComponent)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
 			
@@ -117,7 +117,7 @@ namespace ECSUnitTest
 		TEST_METHOD(GetUnaddedComponent)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity);
 			auto* mesh = world.GetComponent<MeshRenderer>(entity);
 			
@@ -128,7 +128,7 @@ namespace ECSUnitTest
 		TEST_METHOD(GetComponentMember)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
 			pos->x = 2.0f;
@@ -140,7 +140,7 @@ namespace ECSUnitTest
 		TEST_METHOD(AddMultipleComponents)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity);
 			world.AddComponent<MeshRenderer>(entity);
 			auto* mesh = world.GetComponent<MeshRenderer>(entity);
@@ -155,7 +155,7 @@ namespace ECSUnitTest
 			// create and discard entity to allow 
 			// us to test with not the first entity created.
 			world.CreateEntity(); 
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
 
@@ -166,7 +166,7 @@ namespace ECSUnitTest
 		TEST_METHOD(RemoveComponent)
 		{
 			World world;
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity);
 			world.RemoveComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
@@ -180,7 +180,7 @@ namespace ECSUnitTest
 			World world;
 			uint32_t num_entities{ 10 };
 			for (uint32_t i = 0; i < num_entities; i++) {
-				uint64_t entity = world.CreateEntity();
+				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
 			}
 
@@ -196,7 +196,7 @@ namespace ECSUnitTest
 			World world;
 			uint32_t num_entities{ 10 };
 			for (uint32_t i = 0; i < num_entities; i++) {
-				uint64_t entity = world.CreateEntity();
+				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
 				if (i % 2) {
 					world.AddComponent<MeshRenderer>(entity);
@@ -214,33 +214,32 @@ namespace ECSUnitTest
 			World world;
 			uint32_t num_entities{ 10 };
 			for (uint32_t i = 0; i < num_entities; i++) {
-				uint64_t entity = world.CreateEntity();
+				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
-				if (i % 2) {
+				if (i == 0) {
 					world.AddComponent<MeshRenderer>(entity);
-				}
-				if (i % 3) {
 					world.AddComponent<AI>(entity);
 				}
 			}
+			
 
 			EntityList entities;
 			world.GetEntitiesWith<Position, MeshRenderer, AI>(entities);
 
-			Assert::AreEqual(num_entities / 3, entities.size());
+			Assert::AreEqual(static_cast<uint32_t>(1), entities.size());
 		}
 
 		TEST_METHOD(KillEntity)
 		{
 			World world;
-			uint64_t e1 = world.CreateEntity();
+			auto e1 = world.CreateEntity();
 
 			world.AddComponent<Position>(e1);
 			world.AddComponent<MeshRenderer>(e1);
 
 			world.KillEntity(e1); // remove all components
 			
-			uint64_t e2 = world.CreateEntity(); // recycle the id
+			auto e2 = world.CreateEntity(); // recycle the id
 
 			auto* p = world.GetComponent<Position>(e2); // this should be nullptr from the KillEntity method
 			auto* m = world.GetComponent<MeshRenderer>(e2); // as should this
@@ -251,12 +250,12 @@ namespace ECSUnitTest
 		TEST_METHOD(RecycleEntity)
 		{
 			World world;
-			uint64_t e1 = world.CreateEntity(); // id 0
-			uint64_t e2 = world.CreateEntity(); // id 1
+			auto e1 = world.CreateEntity(); // id 0
+			auto e2 = world.CreateEntity(); // id 1
 
 			world.KillEntity(e1); // move id 0 into pool of free entities
 
-			uint64_t e3 = world.CreateEntity(); // should be id 0 and not id 2
+			auto e3 = world.CreateEntity(); // should be id 0 and not id 2
 
 			uint16_t id = e3 >> 48;
 			uint16_t zero{ 0 };
@@ -267,12 +266,12 @@ namespace ECSUnitTest
 		TEST_METHOD(CheckVersionIncrease)
 		{
 			World world;
-			uint64_t e1 = world.CreateEntity(); // id 0
-			uint64_t e2 = world.CreateEntity(); // id 1
+			auto e1 = world.CreateEntity(); // id 0
+			auto e2 = world.CreateEntity(); // id 1
 
 			world.KillEntity(e1); // move id 0 into pool of free entities
 
-			uint64_t e3 = world.CreateEntity(); // should be version 1 and not version 0
+			auto e3 = world.CreateEntity(); // should be version 1 and not version 0
 
 			uint8_t version = (e3 << 16) >> 56;
 			uint8_t expected_version{ 1 };
@@ -283,18 +282,18 @@ namespace ECSUnitTest
 		TEST_METHOD(AddComponentToRecylcedEntity)
 		{
 			World world;
-			uint64_t e1 = world.CreateEntity();
+			auto e1 = world.CreateEntity();
 
 			world.AddComponent<Position>(e1);
 			world.AddComponent<MeshRenderer>(e1);
 
 			world.KillEntity(e1); // remove all components
 
-			uint64_t e2 = world.CreateEntity(); // recycle the id
+			auto e2 = world.CreateEntity(); // recycle the id
 
 			world.AddComponent<Position>(e2);
 
-			Position* p = world.GetComponent<Position>(e2);
+			auto* p = world.GetComponent<Position>(e2);
 
 			Assert::IsNotNull(p);
 		}
@@ -330,26 +329,12 @@ namespace ECSUnitTest
 			}
 			world.RemoveComponent<Position>(entities[0]);
 
-			uint64_t entity = world.CreateEntity();
+			auto entity = world.CreateEntity();
 			world.AddComponent<Position>(entity, 10.0f, 10.0f, 10.0f);
 
 			auto* p1 = world.GetComponent<Position>(entity);
 			Assert::IsNotNull(p1);
 			Assert::AreEqual(10.0f, p1->x);
 		}
-
-// 		TEST_METHOD(Destructor)
-// 		{
-// 			World* world = new World();
-// 
-// 			uint64_t e = world->CreateEntity();
-// 			world->AddComponent<Position>(e);
-// 
-// 			world->test_destructor();
-// 
-// 			auto p = world->GetComponent<Position>(e);
-// 
-// 			Assert::IsNull(p);
-// 		}
 	};
 }

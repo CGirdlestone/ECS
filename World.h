@@ -13,7 +13,7 @@
 #include "IComponent.h"
 
 const int MAX_COMPONENTS{ 40 };
-const int MAX_ENTITIES{ 65534 }; // max 16 bit - 1
+const int MAX_ENTITIES{ 16382 }; // (2^14 - 1) - 1
 
 /*
 * Entity - 64 bits
@@ -40,22 +40,22 @@ struct Pool
 		delete[] components;
 	};
 
-	inline void* get_addr(const size_t index) {
+	inline void* get_addr(const size_t index) const {
 		return components + index * stride;
 	};
 
-	template <typename T, typename... Args>
+	template <typename Component, typename... Args>
 	void add(Args... args) {
-		new (get_addr(num_elements++)) T(std::forward<Args>(args)...);
+		new (get_addr(num_elements++)) Component(std::forward<Args>(args)...);
 	};
 
-	template <typename T>
-	T* get(const size_t index) {
+	template <typename Component>
+	Component* get(const size_t index) const {
 		if (index >= num_elements) {
 			return nullptr;
 		}
 
-		return (T*)(components + index * stride);
+		return reinterpret_cast<Component*>(components + index * stride);
 	}
 
 	void swap(const size_t i, const size_t j) {
@@ -64,7 +64,7 @@ struct Pool
 		std::memcpy(c1, c2, stride);
 	}
 
-	void erase(size_t index) {
+	void erase(const size_t index) {
 		if (num_elements > 1) {
 			size_t final_element = num_elements - 1;
 			swap(index, final_element);
@@ -86,53 +86,55 @@ private:
 	ComponentPool m_component_pools;
 	std::array<uint64_t, MAX_ENTITIES> m_entities{ 0 };
 	EntityList m_free_entities;
-
 	int component_counter{ 0 };
 
-	void Flip(uint64_t& entity, int n) {
+	inline void Flip(uint64_t& entity, const int n) {
 		/* Flip the nth bit of entity. */
-		entity ^= ((uint64_t)1 << n);
+		entity ^= (static_cast<uint64_t>(1) << n);
 	}
 
-	void Zero(uint64_t& entity, int n) {
+	inline void Zero(uint64_t& entity, const int n) {
 		/* Zero the nth bit of entity. */
-		entity &= ((uint64_t)0 << n);
+		entity &= (static_cast<uint64_t>(0) << n);
 	}
 
-	int Extract(uint64_t entity, int n) {
+	inline const int Extract(uint64_t entity, const int n) const {
 		/* Extract the nth bit of entity. */
 		return (entity >> n) & 1;
 	}
 
-	uint16_t GetEntityID(uint64_t entity) {
+	inline const uint16_t GetEntityID(const uint64_t entity) const {
 		/* Get the top 16 bits of entity. */
-		return (uint16_t)(entity >> 48);
+		return static_cast<uint16_t>(entity >> 48);
 	}
 
-	void SetEntityID(uint64_t& entity, uint16_t id) {
+	inline void SetEntityID(uint64_t& entity, const uint16_t id) {
 		/* Set the upper 16 bits of uint16_t to the bit pattern of id. */
 		entity = ((entity >> 48) | id) << 48;
 	}
 
-	uint8_t GetEntityVersion(uint64_t entity) {
+	inline uint8_t GetEntityVersion(const uint64_t entity) const {
 		/* Get the 3rd set of 16 bits. */
-		return (uint8_t)((entity << 16) >> 56);
+		return static_cast<uint8_t>((entity << 16) >> 56);
 	}
 
 	void IncreaseEntityVersion(uint64_t& entity) {
-		/* Overwrite the version (3rd set of 16 bits) with the previous value + 1. */
-		uint8_t current_version = GetEntityVersion(entity);
+		/* Overwrite the version (3rd set of 16 bits) with the previous 
+		*  value + 1. 
+		*/
+		auto current_version = GetEntityVersion(entity);
 		current_version++;
 		entity = (((entity >> 40) & (0 << 8) | current_version)) << 40;
 	}
 
 	uint64_t NewEntity() {
 		/* Generate a completely new entity. */
-		uint64_t entity{ 0 };
 		if (m_entity_counter == MAX_ENTITIES) {
 			throw std::runtime_error("Maximum number of entities reached!");
 		}
-		uint16_t uid = m_entity_counter++;
+
+		uint64_t entity{ 0 };
+		auto uid = m_entity_counter++;
 
 		SetEntityID(entity, uid);
 		m_entities[uid] = entity;
@@ -141,31 +143,33 @@ private:
 
 	uint64_t RecycleEntity() {
 		/* Retrieve an entity from the free entities pool. */
-		uint64_t entity = m_free_entities.back();
+		auto entity = m_free_entities.back();
 		m_free_entities.pop_back();
 
 		return entity;
 	}
 
-	void SwapPackedEntities(int component_id, uint16_t entity_id, uint16_t packed_index) {
-		uint16_t final_entity_id = m_packed.at(component_id).back();
+	void SwapPackedEntities(const int component_id, const uint16_t entity_id, const uint16_t packed_index) {
+		auto final_entity_id = m_packed.at(component_id).back();
 		// update the values in the sparse array		
 		m_sparse.at(component_id)[final_entity_id] = packed_index;
 		m_sparse.at(component_id)[entity_id] = MAX_ENTITIES + 1;
 		
-		// swap entity ids in the packed array and then remove the last id (the entity which is having the component removed)
-		std::iter_swap(m_packed.at(component_id).begin() + packed_index, m_packed.at(component_id).end() - 1);
+		// swap entity ids in the packed array and then remove the last 
+		// id (the entity which is having the component removed)
+		std::iter_swap(m_packed.at(component_id).begin() + packed_index, 
+						m_packed.at(component_id).end() - 1);
 		m_packed.at(component_id).pop_back();
 	}
 
-	void __RemoveComponent(int component_id, uint64_t & entity) {
-		uint16_t entity_id = GetEntityID(entity);
+	void __RemoveComponent(const int component_id, uint64_t & entity) {
+		const auto entity_id = GetEntityID(entity);
 
 		if (Extract(entity, component_id) == 1) {
 			Zero(entity, component_id);
 			auto* pool = m_component_pools.at(component_id);
 			m_entities[entity_id] = entity;
-			uint16_t packed_index = m_sparse.at(component_id)[entity_id];
+			auto packed_index = m_sparse.at(component_id)[entity_id];
 			if (m_packed.at(component_id).size() > 1) {
 				SwapPackedEntities(component_id, entity_id, packed_index);
 			}
@@ -180,16 +184,22 @@ public:
 	World() {};
 
 	~World() {
-
+		for (auto* pool : m_component_pools) {
+			delete pool;
+			pool = nullptr;
+		}
 	};
 
 	void test_destructor() {
-		// TO DO
+		for (auto* pool : m_component_pools) {
+			delete pool;
+			pool = nullptr;
+		}
 	}
 
 	uint64_t CreateEntity() {
 		/* Create a new entity by recycling an 'killed' id, 
-		* or by creating a new id. 
+		*  or by creating a new id. 
 		*/
 		uint64_t entity;
 
@@ -208,7 +218,9 @@ public:
 
 	template <typename Component>
 	int GetID() {
-		/* Increase the static component counter for each new component type used up to a maximum of MAX_COMPONENTS. */
+		/* Increase the static component counter for each new component 
+		*  type used up to a maximum of MAX_COMPONENTS.
+		*/
 		if (component_counter == MAX_COMPONENTS) {
 			throw std::runtime_error("Max number of components exceeded.");
 		}
@@ -220,22 +232,27 @@ public:
 
 	template <typename Component, typename... Args>
 	void AddComponent(uint64_t& entity, Args... args) {
-		/* Create an instance of Component type and ties it to the specified entity. */
-		uint16_t entity_id = GetEntityID(entity);
-		int component_id = GetID<Component>();
+		/* Create an instance of Component type and ties it to the specified 
+		*  entity.
+		*/
+		auto entity_id = GetEntityID(entity);
+		auto component_id = GetID<Component>();
 		
-		
-		// Set the associated bit (if the entity doesn't have this component already).
+		// Set the associated bit (if the entity doesn't have this 
+		// component already).
 		if (Extract(entity, component_id) == 0) {
 			Flip(entity, component_id);
 			m_entities[entity_id] = entity;
 		}
 		
-		if (m_component_pools.empty() || m_component_pools.size() == component_id) {
+		if (m_component_pools.empty() ||
+			m_component_pools.size() == component_id) {
+
 			// First use of this Component, so create a new Pool.
 			auto* p = new Pool(MAX_ENTITIES, sizeof(Component));
 			m_component_pools.emplace_back(p);
 
+			// create and populate the sparse array
 			std::array<uint16_t, MAX_ENTITIES> sparse;
 			sparse.fill(MAX_ENTITIES + 1);
 			m_sparse.insert({ component_id, sparse});
@@ -246,7 +263,7 @@ public:
 			m_packed.insert({ component_id, packed });
 		}
 		else {
-			uint16_t packed_index = m_packed.at(component_id).size();
+			auto packed_index = m_packed.at(component_id).size();
 			m_packed.at(component_id).push_back(entity_id);
 			m_sparse.at(component_id)[entity_id] = packed_index;
 		}
@@ -256,25 +273,26 @@ public:
 	}
 
 	template <typename Component>
-	bool HasComponent(uint64_t entity) {
+	bool HasComponent(const uint64_t entity) const {
 		/* Query whether the specified entity has the given component. */
-		int component_id = GetID<Component>();
+		auto component_id = GetID<Component>();
 
 		return Extract(entity, component_id) == 1;
 	}
 
 	template <typename Component>
-	Component* GetComponent(uint64_t entity) {
-		/* Retrieves a pointer to the given component that is associated with the specified entity.
-		*  If that entity does not have a component of that type, nullptr is returned 
+	Component* GetComponent(const uint64_t entity) {
+		/* Retrieves a pointer to the given component that is associated 
+		*  with the specified entity. If that entity does not have a component 
+		*  of that type, nullptr is returned 
 		*/
-		int component_id = GetID<Component>();
+		auto component_id = GetID<Component>();
 
 		Component* p_component{ nullptr };
 		
 		if (Extract(entity, component_id) == 1) {
-			uint16_t entity_id = GetEntityID(entity);
-			uint16_t packed_index = m_sparse.at(component_id)[entity_id];
+			auto entity_id = GetEntityID(entity);
+			auto packed_index = m_sparse.at(component_id)[entity_id];
 			auto* pool = m_component_pools.at(component_id);
 			p_component = pool->get<Component>(packed_index);
 		}
@@ -285,7 +303,7 @@ public:
 	template <typename Component>
 	void RemoveComponent(uint64_t& entity) {
 		/* If the entity has a component of this type, it is deleted, otherwise nothing happens. */
-		int component_id = GetID<Component>();
+		auto component_id = GetID<Component>();
 		__RemoveComponent(component_id, entity);
 	}
 
@@ -303,35 +321,40 @@ public:
 	template <typename Component>
 	void GetEntitiesWith(EntityList& entities) {
 		/* Gets all the entities which have the specified component. */
-		int component_id = GetID<Component>();
+		auto component_id = GetID<Component>();
 		
-		for (uint16_t i = 0; i < m_entity_counter; i++) {
-			if (Extract(m_entities[i], component_id) == 1) {
-				entities.push_back(m_entities[i]);
+		for (auto entity_id : m_packed.at(component_id)) {
+			if (Extract(m_entities[entity_id], component_id) == 1) {
+				entities.push_back(m_entities[entity_id]);
 			}
 		}
 	}
 
 	template <typename Component1, typename Component2>
 	void GetEntitiesWith(EntityList& entities) {
-		/* Gets all the entities which have both specified components. */
-		int component1_id = GetID<Component1>();
-		int component2_id = GetID<Component2>();
+		/* Gets all the entities which have both specified components. 
+		*  Iterate over the smallest component group, checking whether they 
+		*  also have the other component.
+		*/
+		auto component1_id = GetID<Component1>();
+		auto component2_id = GetID<Component2>();
 
 		auto num_component1_elements = m_packed.at(component1_id).size();
 		auto num_component2_elements = m_packed.at(component2_id).size();
 
 		if (num_component1_elements <= num_component2_elements) {
-			for (auto entity : m_packed.at(component1_id)) {
-				if (Extract(entity, component2_id)) {
-					entities.push_back(m_packed.at(component2_id)[entity]);
+			// first type has the fewest entities
+			for (auto entity_id : m_packed.at(component1_id)) {
+				if (Extract(m_entities[entity_id], component2_id)) {
+					entities.push_back(m_entities[entity_id]);
 				}
 			}
 		}
 		else {
-			for (auto entity : m_packed.at(component2_id)) {
-				if (Extract(entity, component1_id)) {
-					entities.push_back(m_packed.at(component1_id)[entity]);
+			for (auto entity_id : m_packed.at(component2_id)) {
+				// second type has the fewest entities
+				if (Extract(m_entities[entity_id], component1_id)) {
+					entities.push_back(m_entities[entity_id]);
 				}
 			}
 		}
@@ -340,13 +363,38 @@ public:
 	template <typename Component1, typename Component2, typename Component3>
 	void GetEntitiesWith(EntityList& entities) {
 		/* Gets all the entities which have all three specified components. */
-		int component1_id = GetID<Component1>();
-		int component2_id = GetID<Component2>();
-		int component3_id = GetID<Component3>();
+		auto component1_id = GetID<Component1>();
+		auto component2_id = GetID<Component2>();
+		auto component3_id = GetID<Component3>();
 
-		for (uint16_t i = 0; i < m_entity_counter; i++) {
-			if (Extract(m_entities[i], component1_id) == 1 && Extract(m_entities[i], component2_id) && Extract(m_entities[i], component3_id)) {
-				entities.push_back(m_entities[i]);
+		auto num_component1_elements = m_packed.at(component1_id).size();
+		auto num_component2_elements = m_packed.at(component2_id).size();
+		auto num_component3_elements = m_packed.at(component3_id).size();
+
+		if (num_component1_elements <= num_component2_elements && 
+			num_component1_elements <= num_component3_elements) {
+			// first type has the fewest entities
+			for (auto entity_id : m_packed.at(component1_id)) {
+				if (Extract(m_entities[entity_id], component2_id) && Extract(m_entities[entity_id], component3_id)) {
+					entities.push_back(m_entities[entity_id]);
+				}
+			}
+		}
+		else if (num_component2_elements <= num_component1_elements &&
+				num_component2_elements <= num_component3_elements) {
+			// second type has the fewest entities
+			for (auto entity_id : m_packed.at(component2_id)) {
+				if (Extract(m_entities[entity_id], component1_id) && Extract(m_entities[entity_id], component3_id)) {
+					entities.push_back(m_entities[entity_id]);
+				}
+			}
+		}
+		else {
+			// third type has the fewest entities
+			for (auto entity_id : m_packed.at(component3_id)) {
+				if (Extract(m_entities[entity_id], component1_id) && Extract(m_entities[entity_id], component2_id)) {
+					entities.push_back(m_entities[entity_id]);
+				}
 			}
 		}
 	}
