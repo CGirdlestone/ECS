@@ -1,11 +1,11 @@
 # ECS
 
-This is a templated, header only Entity-Component-System implementation (minus the system part) to support composition over inheritance for games.
+This is a templated, header only Entity-Component-System implementation to support composition over inheritance for games.
 
-Entities are represented by an unsigned 64 bit integer containing a unique ID (the uppermost 16 bits), a version number (for systems to validate against) (another 16 bits)
-and a 32-bit component mask (for a maximum of 32 components). 
+Entities are represented by an unsigned 32 bit integer containing a unique ID (the uppermost 16 bits), a version number (for systems to validate against) (another 8 bits)
+with 8 bits currently unused.
 
-The entity unique ID is used to index into the component array allowing the entity to be tied to it's associated components.
+This implementation uses a sparse array for each component type (created upon first adding a component) which is MAX_ENTITIES wide and is used to determine whether an entity has a component or not. If an entity has a component, the value in the sparse array is the index of that entities component in the packed component array. Mirroring the packed component array is a packed array of the same size where the value is the entity id (this makes rearranging the packed component array easier when an entity has a component removed. When a component is first added, a `<Pool>` for it is created which allocated exactly enough memory for exactly MAX_ENTITIES of that component. The pools are stored in a vector, so there is no limit (within your hardware bounds anyway) to the amout of components that can be used. 
 
 The `<World>` class is the sole arbiter of 'truth' regarding entities and associated components.
 
@@ -15,20 +15,10 @@ To use this ECS implementation, include the World.h header file in your project 
 
     World world;
 
-With regards to components, ensure they inherit from `<IComponent>` (no methods defined) and don't create a constructor. 
-<del> I intend to implement forwarding of arguments to allow components to be fully constructed whilst adding it to an entity. At the moment, it has to be done after the empty component is added to the entity. </del> 
-
-Arguments can now be supplied 
-when adding the component.
-
-    struct YourComponent : IComponent
-    {
-      ...
-    };
-
+Components are not required to inherit from any common interface. When adding a component, you can supply arguments which will be forwarded to the component's constructor.
 To create an entity, use the `<CreateEntity>` method. This will either create a totally fresh entity, or it will recycle an entity id from a pool of discarded ids.
 
-    uint64_t entity = world.CreateEntity();
+    auto entity = world.CreateEntity();
     
 Component types are registered on first use, and components can be added thusly.
 
@@ -38,30 +28,22 @@ Component types are registered on first use, and components can be added thusly.
 Currently, components can only be added signularly. If you would like to remove a component, it's done the same as above, but using the `<RemoveComponent<YourComponent>(entity)>`
 method.
 
-To retrieve components, it can be done in one of two ways. One is to use the `<HasComponent>` method which checks the bit field for the
-supplied component and return true/false. The other is to directly attempt to the retrieve the component pointer and if the entity doesn't have this component added, a nullptr will 
+To retrieve components, use the `<GetComponent<YourComponent>>` method to the retrieve the component pointer. If the entity doesn't have this component added, a nullptr will 
 be returned.
 
-    if (world.HasComponent<YourComponent>(entity){
-      ...
-    }
-    
-or
-    
-    YourComponent* your_component_pointer = world.GetComponent<YourComponent>(entity);
+    auto* your_component_pointer = world.GetComponent<YourComponent>(entity);
    
-Finally, if you would like get a list of all the entities with given components, this can be achieved by the `<GetEntitiesWith<YourComponent>(std::vector<uint64_t>& entities)>` method.
-The method takes an empty `<std::vector<uint64_t>>` and fills it with those entities that have `<YourComponent>`. Up to three components can be requested in one call.
+Finally, if you would like get a list of all the entities with given components, this can be achieved by the `<GetEntitiesWith<YourComponent>(std::vector<uint32_t>& entities)>` method. The method takes an empty `<std::vector<uint32_t>>` and fills it with those entities that have `<YourComponent>`. Up to three components can be requested in one call.
 
-    std::vector<uint64_t> entities;
+    std::vector<uint32_t> entities;
     world.GetEntitiesWith<YourComponent>(entities);
 
-    std::vector<uint64_t> multi_component_entities;
+    std::vector<uint32_t> multi_component_entities;
     world.GetEntitiesWith<YourComponent1, YourComponent2, YourComponent3>(multi_component_entities);
     
  Finally, once you're finished with an entity, your can 'kill' it which adds it's unique ID to a free pool and zeros all of its associated components.
  
     world.KillEntity(entity);
  
- And that's it! It's a simple implementation and won't be winning any prizes for speed, but it's a workable system that's pretty easy to use.
+ And that's it!
  
