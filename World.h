@@ -19,7 +19,7 @@ const int MAX_ENTITIES{ 16382 }; // (2^14 - 1) - 1
 * Entity - 64 bits
 * 
 * | 16 bits			|	8 bits		|	40 bits				| 
-* | unique ID		|	version		|	component bit mask	|
+* | unique ID		|	version		|	currently unused	|
 * 
 */
 
@@ -88,21 +88,6 @@ private:
 	EntityList m_free_entities;
 	int component_counter{ 0 };
 
-	inline void Flip(uint64_t& entity, const int n) {
-		/* Flip the nth bit of entity. */
-		entity ^= (static_cast<uint64_t>(1) << n);
-	}
-
-	inline void Zero(uint64_t& entity, const int n) {
-		/* Zero the nth bit of entity. */
-		entity &= (static_cast<uint64_t>(0) << n);
-	}
-
-	inline const int Extract(uint64_t entity, const int n) const {
-		/* Extract the nth bit of entity. */
-		return (entity >> n) & 1;
-	}
-
 	inline const uint16_t GetEntityID(const uint64_t entity) const {
 		/* Get the top 16 bits of entity. */
 		return static_cast<uint16_t>(entity >> 48);
@@ -165,8 +150,7 @@ private:
 	void __RemoveComponent(const int component_id, uint64_t & entity) {
 		const auto entity_id = GetEntityID(entity);
 
-		if (Extract(entity, component_id) == 1) {
-			Zero(entity, component_id);
+		if (HasComponent(component_id, entity)) {
 			auto* pool = m_component_pools.at(component_id);
 			m_entities[entity_id] = entity;
 			auto packed_index = m_sparse.at(component_id)[entity_id];
@@ -175,6 +159,7 @@ private:
 			}
 			else {
 				m_packed.at(component_id).pop_back();
+				m_sparse.at(component_id)[entity_id] = MAX_ENTITIES + 1;
 			}
 			pool->erase(packed_index);
 		}
@@ -229,6 +214,14 @@ public:
 		return component_id;
 	}
 
+	bool HasComponent(const int component_id, const uint64_t entity) const {
+		/* Query whether the specified entity has the given component. */
+		if (m_sparse.find(component_id) == m_sparse.end()) {
+			// this component has never been added to an entity.
+			return false;
+		}
+		return m_sparse.at(component_id)[GetEntityID(entity)] != MAX_ENTITIES + 1;
+	}
 
 	template <typename Component, typename... Args>
 	void AddComponent(uint64_t& entity, Args... args) {
@@ -237,13 +230,6 @@ public:
 		*/
 		auto entity_id = GetEntityID(entity);
 		auto component_id = GetID<Component>();
-		
-		// Set the associated bit (if the entity doesn't have this 
-		// component already).
-		if (Extract(entity, component_id) == 0) {
-			Flip(entity, component_id);
-			m_entities[entity_id] = entity;
-		}
 		
 		if (m_component_pools.empty() ||
 			m_component_pools.size() == component_id) {
@@ -273,14 +259,6 @@ public:
 	}
 
 	template <typename Component>
-	bool HasComponent(const uint64_t entity) const {
-		/* Query whether the specified entity has the given component. */
-		auto component_id = GetID<Component>();
-
-		return Extract(entity, component_id) == 1;
-	}
-
-	template <typename Component>
 	Component* GetComponent(const uint64_t entity) {
 		/* Retrieves a pointer to the given component that is associated 
 		*  with the specified entity. If that entity does not have a component 
@@ -290,7 +268,7 @@ public:
 
 		Component* p_component{ nullptr };
 		
-		if (Extract(entity, component_id) == 1) {
+		if (HasComponent(component_id, entity)) {
 			auto entity_id = GetEntityID(entity);
 			auto packed_index = m_sparse.at(component_id)[entity_id];
 			auto* pool = m_component_pools.at(component_id);
@@ -308,9 +286,11 @@ public:
 	}
 
 	void KillEntity(uint64_t& entity) {
-		/* Zeros the entity's component mask and then moves it id to the free entities vector ready for re-use. */
+		/* Sets all components to MAX_ENTITY + 1 to represent no component and 
+		*  then moves the id to the free entities vector ready for re-use.
+		*/
 		for (int i = 0; i < component_counter; i++) {
-			if (Extract(entity, i) == 1) {
+			if (HasComponent(i, entity)) {
 				__RemoveComponent(i, entity);
 			}
 		}
@@ -324,7 +304,7 @@ public:
 		auto component_id = GetID<Component>();
 		
 		for (auto entity_id : m_packed.at(component_id)) {
-			if (Extract(m_entities[entity_id], component_id) == 1) {
+			if (HasComponent(component_id, m_entities[entity_id]) == 1) {
 				entities.push_back(m_entities[entity_id]);
 			}
 		}
@@ -345,7 +325,7 @@ public:
 		if (num_component1_elements <= num_component2_elements) {
 			// first type has the fewest entities
 			for (auto entity_id : m_packed.at(component1_id)) {
-				if (Extract(m_entities[entity_id], component2_id)) {
+				if (HasComponent(component2_id, m_entities[entity_id])) {
 					entities.push_back(m_entities[entity_id]);
 				}
 			}
@@ -353,7 +333,7 @@ public:
 		else {
 			for (auto entity_id : m_packed.at(component2_id)) {
 				// second type has the fewest entities
-				if (Extract(m_entities[entity_id], component1_id)) {
+				if (HasComponent(component1_id, m_entities[entity_id])) {
 					entities.push_back(m_entities[entity_id]);
 				}
 			}
@@ -375,7 +355,7 @@ public:
 			num_component1_elements <= num_component3_elements) {
 			// first type has the fewest entities
 			for (auto entity_id : m_packed.at(component1_id)) {
-				if (Extract(m_entities[entity_id], component2_id) && Extract(m_entities[entity_id], component3_id)) {
+				if (HasComponent(component2_id, m_entities[entity_id]) && HasComponent(component3_id, m_entities[entity_id])) {
 					entities.push_back(m_entities[entity_id]);
 				}
 			}
@@ -384,7 +364,7 @@ public:
 				num_component2_elements <= num_component3_elements) {
 			// second type has the fewest entities
 			for (auto entity_id : m_packed.at(component2_id)) {
-				if (Extract(m_entities[entity_id], component1_id) && Extract(m_entities[entity_id], component3_id)) {
+				if (HasComponent(component1_id, m_entities[entity_id]) && HasComponent(component3_id, m_entities[entity_id])) {
 					entities.push_back(m_entities[entity_id]);
 				}
 			}
@@ -392,7 +372,7 @@ public:
 		else {
 			// third type has the fewest entities
 			for (auto entity_id : m_packed.at(component3_id)) {
-				if (Extract(m_entities[entity_id], component1_id) && Extract(m_entities[entity_id], component2_id)) {
+				if (HasComponent(component1_id, m_entities[entity_id]) && HasComponent(component2_id, m_entities[entity_id])) {
 					entities.push_back(m_entities[entity_id]);
 				}
 			}
