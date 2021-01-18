@@ -16,6 +16,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			int id{ 1 };
+			world.RegisterComponent<Position>();
 			id = world.GetID<Position>();
 
 			Assert::AreEqual(0, id);
@@ -26,6 +27,8 @@ namespace ECSUnitTest
 
 			World world;
 			int id{ 10 };
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
 			world.GetID<Position>();
 			id = world.GetID<MeshRenderer>();
 
@@ -36,6 +39,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			int id{ 10 };
+			world.RegisterComponent<Position>();
 			world.GetID<Position>();
 			id = world. GetID<Position>();
 
@@ -66,6 +70,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity(); // entity with uid 0
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity);
 			//bool has_component = world.HasComponent<Position>(entity);
 			Assert::IsTrue(true);
@@ -76,7 +81,14 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity(); // entity with uid 0
-			// one call to GetID<Type> (component id of 0)
+
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
+			world.RegisterComponent<AI>();
+			world.RegisterComponent<RigidBody>();
+			world.RegisterComponent<Sprite>();
+			world.RegisterComponent<Model>();
+
 			world.AddComponent<Position>(entity); 
 			world.AddComponent<MeshRenderer>(entity); 
 			world.AddComponent<AI>(entity);
@@ -97,6 +109,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity(); // entity with uid 0
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity, 1.0f, 1.0f, 1.0f);
 
 			auto* p = world.GetComponent<Position>(entity);
@@ -108,6 +121,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity();
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
 			
@@ -118,6 +132,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity();
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity);
 			auto* mesh = world.GetComponent<MeshRenderer>(entity);
 			
@@ -129,6 +144,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity();
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
 			pos->x = 2.0f;
@@ -141,6 +157,8 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity();
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
 			world.AddComponent<Position>(entity);
 			world.AddComponent<MeshRenderer>(entity);
 			auto* mesh = world.GetComponent<MeshRenderer>(entity);
@@ -156,6 +174,7 @@ namespace ECSUnitTest
 			// us to test with not the first entity created.
 			world.CreateEntity(); 
 			auto entity = world.CreateEntity();
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
 
@@ -167,6 +186,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto entity = world.CreateEntity();
+			world.RegisterComponent<Position>();
 			world.AddComponent<Position>(entity);
 			world.RemoveComponent<Position>(entity);
 			auto* pos = world.GetComponent<Position>(entity);
@@ -179,6 +199,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			uint32_t num_entities{ 10 };
+			world.RegisterComponent<Position>();
 			for (uint32_t i = 0; i < num_entities; i++) {
 				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
@@ -195,6 +216,8 @@ namespace ECSUnitTest
 		{
 			World world;
 			uint32_t num_entities{ 10 };
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
 			for (uint32_t i = 0; i < num_entities; i++) {
 				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
@@ -213,6 +236,9 @@ namespace ECSUnitTest
 		{
 			World world;
 			uint32_t num_entities{ 10 };
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
+			world.RegisterComponent<AI>();
 			for (uint32_t i = 0; i < num_entities; i++) {
 				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
@@ -232,6 +258,8 @@ namespace ECSUnitTest
 		{
 			World world;
 			auto e1 = world.CreateEntity();
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
 
 			world.AddComponent<Position>(e1);
 			world.AddComponent<MeshRenderer>(e1);
@@ -284,6 +312,9 @@ namespace ECSUnitTest
 			World world;
 			auto e1 = world.CreateEntity();
 
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
+
 			world.AddComponent<Position>(e1);
 			world.AddComponent<MeshRenderer>(e1);
 
@@ -302,6 +333,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			uint32_t entities[4];
+			world.RegisterComponent<Position>();
 			for (int i = 0; i < 4; i++) {
 				entities[i] = world.CreateEntity();
 				world.AddComponent<Position>(entities[i], (float)i * 2, (float)i * 2, (float)i * 2);
@@ -323,6 +355,7 @@ namespace ECSUnitTest
 		{
 			World world;
 			uint32_t entities[4];
+			world.RegisterComponent<Position>();
 			for (int i = 0; i < 4; i++) {
 				entities[i] = world.CreateEntity();
 				world.AddComponent<Position>(entities[i], (float)i * 2, (float)i * 2, (float)i * 2);

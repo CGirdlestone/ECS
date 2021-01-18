@@ -240,14 +240,13 @@ public:
 		return m_sparse.at(component_id)[GetEntityID(entity)] != MAX_ENTITIES + 1;
 	}
 
-	template <typename Component, typename... Args>
-	void AddComponent(uint32_t& entity, Args... args) {
-		/* Create an instance of Component type and ties it to the specified 
-		*  entity.
-		*/
-		auto entity_id = GetEntityID(entity);
+	template <typename Component>
+	void RegisterComponent() {
+		// Register a component before use. This will be used to determine the order in which 
+		// component templates are instantiated and therefore allow correct serialisation / 
+		// deserialisation. The user must register all components before use.
 		auto component_id = GetID<Component>();
-		
+
 		if (m_component_pools.empty() ||
 			m_component_pools.size() == component_id) {
 
@@ -255,6 +254,15 @@ public:
 			// arrays.
 			InstantiatePool<Component>();
 		}
+	}
+
+	template <typename Component, typename... Args>
+	void AddComponent(uint32_t& entity, Args... args) {
+		/* Create an instance of Component type and ties it to the specified 
+		*  entity.
+		*/
+		auto entity_id = GetEntityID(entity);
+		auto component_id = GetID<Component>();
 		
 		auto packed_index = m_packed.at(component_id).size();
 		m_packed.at(component_id).push_back(entity_id);
