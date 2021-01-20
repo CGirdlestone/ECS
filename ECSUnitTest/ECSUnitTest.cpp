@@ -204,9 +204,7 @@ namespace ECSUnitTest
 				auto entity = world.CreateEntity();
 				world.AddComponent<Position>(entity);
 			}
-
-			EntityList entities;
-			world.GetEntitiesWith<Position>(entities);
+			auto entities = world.GetEntitiesWith<Position>();
 
 			Assert::AreEqual(num_entities, entities.size());
 		}
@@ -226,8 +224,8 @@ namespace ECSUnitTest
 				}
 			}
 
-			EntityList entities;
-			world.GetEntitiesWith<Position, MeshRenderer>(entities);
+			
+			auto entities = world.GetEntitiesWith<Position, MeshRenderer>();
 
 			Assert::AreEqual(num_entities/2, entities.size());
 		}
@@ -248,8 +246,8 @@ namespace ECSUnitTest
 				}
 			}
 			
-			EntityList entities;
-			world.GetEntitiesWith<Position, MeshRenderer, AI>(entities);
+			
+			auto entities = world.GetEntitiesWith<Position, MeshRenderer, AI>();
 
 			Assert::AreEqual(static_cast<uint32_t>(1), entities.size());
 		}

@@ -318,19 +318,21 @@ public:
 	}
 
 	template <typename Component>
-	void GetEntitiesWith(EntityList& entities) {
+	EntityList GetEntitiesWith() {
 		/* Gets all the entities which have the specified component. */
 		auto component_id = GetID<Component>();
 		
+		EntityList entities;
 		for (auto entity_id : m_packed.at(component_id)) {
 			if (HasComponent(component_id, m_entities[entity_id]) == 1) {
 				entities.push_back(m_entities[entity_id]);
 			}
 		}
+		return entities;
 	}
 
 	template <typename Component1, typename Component2>
-	void GetEntitiesWith(EntityList& entities) {
+	EntityList GetEntitiesWith() {
 		/* Gets all the entities which have both specified components. 
 		*  Iterate over the smallest component group, checking whether they 
 		*  also have the other component.
@@ -341,6 +343,7 @@ public:
 		auto num_component1_elements = m_packed.at(component1_id).size();
 		auto num_component2_elements = m_packed.at(component2_id).size();
 
+		EntityList entities;
 		if (num_component1_elements <= num_component2_elements) {
 			// first type has the fewest entities
 			for (auto entity_id : m_packed.at(component1_id)) {
@@ -357,10 +360,11 @@ public:
 				}
 			}
 		}
+		return entities;
 	}
 
 	template <typename Component1, typename Component2, typename Component3>
-	void GetEntitiesWith(EntityList& entities) {
+	EntityList GetEntitiesWith() {
 		/* Gets all the entities which have all three specified components. */
 		auto component1_id = GetID<Component1>();
 		auto component2_id = GetID<Component2>();
@@ -370,6 +374,7 @@ public:
 		auto num_component2_elements = m_packed.at(component2_id).size();
 		auto num_component3_elements = m_packed.at(component3_id).size();
 
+		EntityList entities;
 		if (num_component1_elements <= num_component2_elements && 
 			num_component1_elements <= num_component3_elements) {
 			// first type has the fewest entities
@@ -396,6 +401,7 @@ public:
 				}
 			}
 		}
+		return entities;
 	}
 
 	template <typename Component>
@@ -455,7 +461,9 @@ public:
 
 	template <typename Component1, typename Component2, typename Component3>
 	std::vector<std::tuple<Component1*, Component2*, Component3*>> GetComponents() {
-		/* Gets all the entities which have all three specified components. */
+		/* Gets the intersection of entities which have all three components and returns a vector of tuples of 
+		*  pointers to the components.
+		*/
 		auto component1_id = GetID<Component1>();
 		auto component2_id = GetID<Component2>();
 		auto component3_id = GetID<Component3>();
