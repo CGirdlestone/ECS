@@ -1,3 +1,0 @@
-#include "IComponent.h"
-
-
