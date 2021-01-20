@@ -148,20 +148,29 @@ private:
 
 	template <typename Component>
 	void InstantiatePool() {
+		/* Create the required parts for a new component - the pool, the packed array and the sparse array. */
+		
 		const int component_id = GetID<Component>();
-		// First use of this Component, so create a new Pool.
-		auto p = std::make_unique<Pool>(MAX_ENTITIES, sizeof(Component));
-		m_component_pools.emplace_back(std::move(p));
+		
+		m_component_pools.emplace_back(std::make_unique<Pool>(MAX_ENTITIES, sizeof(Component)));
 
-		// Create and populate the sparse array.
 		m_sparse.insert({ component_id, std::make_unique<uint16_t[]>(MAX_ENTITIES) });
+		// Make sure we initialise all the entries in the sparse array to MAX_ENTITIES + 1 as this means that 
+		// the entity doesn't have the component.
+		auto* sparse = m_sparse.at(component_id).get();
+		for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+			sparse[i] = MAX_ENTITIES + 1;
+		}
 
-		// Create the packed array.
-		std::vector<uint16_t> packed;
-		m_packed.insert({ component_id, packed });
+		m_packed.insert({ component_id, { } });
 	}
 
 	void SwapPackedEntities(const int component_id, const uint16_t entity_id, const uint16_t packed_index) {
+		/* Updates the packed and sparse arrays when an entity has a component removed, if there are more 
+		*  than two entities with the specified component. This is achieved by swapping the positions in the 
+		*  packed array, updating the sparse array and then popping the final entity in the packed array.
+		*/
+
 		auto final_entity_id = m_packed.at(component_id).back();
 		// update the values in the sparse array		
 		m_sparse.at(component_id)[final_entity_id] = packed_index;
@@ -175,19 +184,28 @@ private:
 	}
 
 	void __RemoveComponent(const int component_id, uint32_t & entity) {
-		const auto entity_id = GetEntityID(entity);
-
+		/* If the entity has a component of this type, it is deleted, otherwise nothing happens.
+		*  This method allows components to be removed given the integer component id and allows if
+		*  therefore to be called from outside of the templated code.
+		*/
+		
 		if (HasComponent(component_id, entity)) {
-			auto* pool = m_component_pools.at(component_id).get();
-			m_entities[entity_id] = entity;
+			const auto entity_id = GetEntityID(entity);
 			auto packed_index = m_sparse.at(component_id)[entity_id];
+
+			// if there is more than one of these components, swap the to-be-deleted entry in the packed array
+			// with the final entry and then remove it.
 			if (m_packed.at(component_id).size() > 1) {
 				SwapPackedEntities(component_id, entity_id, packed_index);
 			}
 			else {
+				// otherwise just pop it from the packed array and update the sparse array.
 				m_packed.at(component_id).pop_back();
 				m_sparse.at(component_id)[entity_id] = MAX_ENTITIES + 1;
 			}
+
+			// now erase the component from the pool data.
+			auto* pool = m_component_pools.at(component_id).get();
 			pool->erase(packed_index);
 		}
 	}
@@ -293,7 +311,7 @@ public:
 
 	template <typename Component>
 	void RemoveComponent(uint32_t& entity) {
-		/* If the entity has a component of this type, it is deleted, otherwise nothing happens. */
+		/* Forwards the component to be removed. */
 		auto component_id = GetID<Component>();
 		__RemoveComponent(component_id, entity);
 	}
