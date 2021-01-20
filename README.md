@@ -24,7 +24,7 @@ Components are not required to inherit from any common base class. When adding a
     world.AddComponent<YourComponent>(entity); // uses default constructor - will requires setting the data separately.
     world.AddComponent<YourComponent>(entity, arg1, arg2, arg3, ...); // forwards the supplied arguments and uses the defined constructor.
 
-Currently, components can only be added signularly. If you would like to remove a component, it's done the same as above, but using the `RemoveComponent<YourComponent>(entity)>`
+Currently, components can only be added signularly. If you would like to remove a component, it's done the same as above, but using the `RemoveComponent<YourComponent>(entity)`
 method.
 
 To retrieve components, use the `GetComponent<YourComponent>` method to the retrieve the component pointer. If the entity doesn't have this component added, a nullptr will 
