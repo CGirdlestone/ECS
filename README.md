@@ -32,13 +32,11 @@ be returned.
 
     auto* your_component_pointer = world.GetComponent<YourComponent>(entity);
    
-If you would like get a list of all the entities with given components, this can be achieved by the `<GetEntitiesWith<YourComponent>(std::vector<uint32_t>& entities)>` method. The method takes an empty `<std::vector<uint32_t>>` and fills it with those entities that have `<YourComponent>`. Up to three components can be requested in one call.
+If you would like get a list of all the entities with given components, this can be achieved by the `<GetEntitiesWith<YourComponent>()>` method. The method returns a vector of entities that have `<YourComponent>`. Up to three components can be requested in one call.
 
-    std::vector<uint32_t> entities;
-    world.GetEntitiesWith<YourComponent>(entities);
+    auto entities = world.GetEntitiesWith<YourComponent>();
 
-    std::vector<uint32_t> multi_component_entities;
-    world.GetEntitiesWith<YourComponent1, YourComponent2, YourComponent3>(multi_component_entities);
+    auto multi_component_entities = world.GetEntitiesWith<YourComponent1, YourComponent2, YourComponent3>();
     
 You can also directly get a vector of the component pointers by using the `<GetComponents<YourComponent>>` method. This generialises to a vector of tuples containing up to three component pointers and you can access them using structured binding.
 
