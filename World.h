@@ -84,16 +84,19 @@ struct Pool
 
 
 using EntityList = std::vector<uint32_t>;
-using ComponentPool = std::vector<Pool*>;
+using ComponentPool = std::vector<std::unique_ptr<Pool>>;
+using SparseArray = std::map<int, std::unique_ptr<uint16_t[]>>;
+using PackedArray = std::map<int, std::vector<uint16_t>>;
+using EntityArray = std::unique_ptr<uint32_t[]>;
 
 class World 
 {
 private:
 	uint16_t m_entity_counter{ 0 };
-	std::map<int, std::array<uint16_t, MAX_ENTITIES>> m_sparse;
-	std::map<int, std::vector<uint16_t>> m_packed;
+	SparseArray m_sparse;
+	PackedArray m_packed;
 	ComponentPool m_component_pools;
-	std::array<uint32_t, MAX_ENTITIES> m_entities{ 0 };
+	EntityArray m_entities{ std::make_unique<uint32_t[]>(MAX_ENTITIES) };
 	EntityList m_free_entities;
 	int component_counter{ 0 };
 
@@ -147,13 +150,11 @@ private:
 	void InstantiatePool() {
 		const int component_id = GetID<Component>();
 		// First use of this Component, so create a new Pool.
-		auto* p = new Pool(MAX_ENTITIES, sizeof(Component));
-		m_component_pools.emplace_back(p);
+		auto p = std::make_unique<Pool>(MAX_ENTITIES, sizeof(Component));
+		m_component_pools.emplace_back(std::move(p));
 
 		// Create and populate the sparse array.
-		std::array<uint16_t, MAX_ENTITIES> sparse;
-		sparse.fill(MAX_ENTITIES + 1);
-		m_sparse.insert({ component_id, sparse });
+		m_sparse.insert({ component_id, std::make_unique<uint16_t[]>(MAX_ENTITIES) });
 
 		// Create the packed array.
 		std::vector<uint16_t> packed;
@@ -177,7 +178,7 @@ private:
 		const auto entity_id = GetEntityID(entity);
 
 		if (HasComponent(component_id, entity)) {
-			auto* pool = m_component_pools.at(component_id);
+			auto* pool = m_component_pools.at(component_id).get();
 			m_entities[entity_id] = entity;
 			auto packed_index = m_sparse.at(component_id)[entity_id];
 			if (m_packed.at(component_id).size() > 1) {
@@ -194,14 +195,7 @@ private:
 public:
 	World() {};
 
-	~World() {
-		for (auto* pool : m_component_pools) {
-			delete pool;
-			pool = nullptr;
-		}
-
-
-	};
+	~World() {};
 
 	uint32_t CreateEntity() {
 		/* Create a new entity by recycling an 'killed' id, 
@@ -273,7 +267,7 @@ public:
 		m_sparse.at(component_id)[entity_id] = packed_index;
 		
 
-		auto* pool = m_component_pools.at(component_id);
+		auto* pool = m_component_pools.at(component_id).get();
 		pool->template add<Component>(std::forward<Args>(args)...);
 	}
 
@@ -290,7 +284,7 @@ public:
 		if (HasComponent(component_id, entity)) {
 			auto entity_id = GetEntityID(entity);
 			auto packed_index = m_sparse.at(component_id)[entity_id];
-			auto* pool = m_component_pools.at(component_id);
+			auto* pool = m_component_pools.at(component_id).get();
 			p_component = pool->template get<Component>(packed_index);
 		}
 		
