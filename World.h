@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 #include <cstring>
+#include <fstream>
 
 #include "Components.h"
 
@@ -70,6 +71,14 @@ struct Pool
 			swap(index, final_element);
 		}
 		num_elements--;
+	}
+
+	void serialize(std::ofstream& file) {
+		// TO DO
+	}
+
+	int deserialize(const char* buffer, int offset) {
+		// TO DO
 	}
 };
 
@@ -190,14 +199,9 @@ public:
 			delete pool;
 			pool = nullptr;
 		}
-	};
 
-	void test_destructor() {
-		for (auto* pool : m_component_pools) {
-			delete pool;
-			pool = nullptr;
-		}
-	}
+
+	};
 
 	uint32_t CreateEntity() {
 		/* Create a new entity by recycling an 'killed' id, 
@@ -270,7 +274,7 @@ public:
 		
 
 		auto* pool = m_component_pools.at(component_id);
-		pool->add<Component>(std::forward<Args>(args)...);
+		pool->template add<Component>(std::forward<Args>(args)...);
 	}
 
 	template <typename Component>
@@ -287,7 +291,7 @@ public:
 			auto entity_id = GetEntityID(entity);
 			auto packed_index = m_sparse.at(component_id)[entity_id];
 			auto* pool = m_component_pools.at(component_id);
-			p_component = pool->get<Component>(packed_index);
+			p_component = pool->template get<Component>(packed_index);
 		}
 		
 		return p_component;
@@ -392,5 +396,119 @@ public:
 				}
 			}
 		}
+	}
+
+	template <typename Component>
+	std::vector<Component*> GetComponents() {
+		/* Gets all the entities which have the specified component. */
+		auto component_id = GetID<Component>();
+
+		std::vector<Component*> components;
+
+		for (auto entity_id : m_packed.at(component_id)) {
+			if (HasComponent(component_id, m_entities[entity_id]) == 1) {
+				auto packed_index = m_sparse.at(component_id)[entity_id];
+				components.push_back(GetComponent<Component>(m_entities[entity_id]));
+			}
+		}
+
+		return components;
+	}
+
+	template <typename Component1, typename Component2>
+	std::vector<std::tuple<Component1*, Component2*>> GetComponents() {
+		/* Gets all the entities which have both specified components.
+		*  Iterate over the smallest component group, checking whether they
+		*  also have the other component.
+		*/
+
+		std::vector<std::tuple<Component1*, Component2*>> components; 
+
+		auto component1_id = GetID<Component1>();
+		auto component2_id = GetID<Component2>();
+
+		auto num_component1_elements = m_packed.at(component1_id).size();
+		auto num_component2_elements = m_packed.at(component2_id).size();
+
+		if (num_component1_elements <= num_component2_elements) {
+			// first type has the fewest entities
+			for (auto entity_id : m_packed.at(component1_id)) {
+				if (HasComponent(component2_id, m_entities[entity_id])) {
+					auto* c1 = GetComponent<Component1>(m_entities[entity_id]);
+					auto* c2 = GetComponent<Component2>(m_entities[entity_id]);
+					components.push_back(std::make_tuple(c1, c2));
+				}
+			}
+		}
+		else {
+			for (auto entity_id : m_packed.at(component2_id)) {
+				// second type has the fewest entities
+				if (HasComponent(component1_id, m_entities[entity_id])) {
+					auto* c1 = GetComponent<Component1>(m_entities[entity_id]);
+					auto* c2 = GetComponent<Component2>(m_entities[entity_id]);
+					components.push_back(std::make_tuple(c1, c2));
+				}
+			}
+		}
+		return components;
+	}
+
+	template <typename Component1, typename Component2, typename Component3>
+	std::vector<std::tuple<Component1*, Component2*, Component3*>> GetComponents() {
+		/* Gets all the entities which have all three specified components. */
+		auto component1_id = GetID<Component1>();
+		auto component2_id = GetID<Component2>();
+		auto component3_id = GetID<Component3>();
+
+		auto num_component1_elements = m_packed.at(component1_id).size();
+		auto num_component2_elements = m_packed.at(component2_id).size();
+		auto num_component3_elements = m_packed.at(component3_id).size();
+
+		std::vector<std::tuple<Component1*, Component2*, Component3*>> components;
+
+		if (num_component1_elements <= num_component2_elements &&
+			num_component1_elements <= num_component3_elements) {
+			// first type has the fewest entities
+			for (auto entity_id : m_packed.at(component1_id)) {
+				if (HasComponent(component2_id, m_entities[entity_id]) && HasComponent(component3_id, m_entities[entity_id])) {
+					auto* c1 = GetComponent<Component1>(m_entities[entity_id]);
+					auto* c2 = GetComponent<Component2>(m_entities[entity_id]);
+					auto* c3 = GetComponent<Component3>(m_entities[entity_id]);
+					components.push_back(std::make_tuple(c1, c2, c3));
+				}
+			}
+		}
+		else if (num_component2_elements <= num_component1_elements &&
+			num_component2_elements <= num_component3_elements) {
+			// second type has the fewest entities
+			for (auto entity_id : m_packed.at(component2_id)) {
+				if (HasComponent(component1_id, m_entities[entity_id]) && HasComponent(component3_id, m_entities[entity_id])) {
+					auto* c1 = GetComponent<Component1>(m_entities[entity_id]);
+					auto* c2 = GetComponent<Component2>(m_entities[entity_id]);
+					auto* c3 = GetComponent<Component3>(m_entities[entity_id]);
+					components.push_back(std::make_tuple(c1, c2, c3));
+				}
+			}
+		}
+		else {
+			// third type has the fewest entities
+			for (auto entity_id : m_packed.at(component3_id)) {
+				if (HasComponent(component1_id, m_entities[entity_id]) && HasComponent(component2_id, m_entities[entity_id])) {
+					auto* c1 = GetComponent<Component1>(m_entities[entity_id]);
+					auto* c2 = GetComponent<Component2>(m_entities[entity_id]);
+					auto* c3 = GetComponent<Component3>(m_entities[entity_id]);
+					components.push_back(std::make_tuple(c1, c2, c3));
+				}
+			}
+		}
+		return components;
+	}
+
+	void Serialize(std::ofstream& file) {
+		// TO DO
+	}
+
+	int Deserialize(const char* buffer, int offset) {
+		// TO DO
 	}
 };

@@ -369,5 +369,60 @@ namespace ECSUnitTest
 			Assert::IsNotNull(p1);
 			Assert::AreEqual(10.0f, p1->x);
 		}
+
+		TEST_METHOD(IterateReturnedComponents)
+		{
+			World world;
+
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
+			for (int i = 0; i < 10; i++) {
+				auto e = world.CreateEntity();
+				world.AddComponent<Position>(e, 1.0f, 1.0f, 1.0f);
+				if (i % 2 == 0) {
+					world.AddComponent<MeshRenderer>(e, 1);
+				}
+			}
+
+			auto components = world.GetComponents<Position, MeshRenderer>();
+
+			int i = 0;
+			for (auto& [p, m] : components) {
+				Assert::IsNotNull(p);
+				Assert::IsNotNull(m);
+				Assert::AreEqual(1U, m->id);
+				Assert::AreEqual(1.0f, p->x);
+				i++;
+			}
+			Assert::AreEqual(5, i);
+		}
+
+		TEST_METHOD(IterateThreeReturnedComponents)
+		{
+			World world;
+
+			world.RegisterComponent<Position>();
+			world.RegisterComponent<MeshRenderer>();
+			world.RegisterComponent<AI>();
+			for (int i = 0; i < 10; i++) {
+				auto e = world.CreateEntity();
+				world.AddComponent<Position>(e, 1.0f, 1.0f, 1.0f);
+				if (i % 2 == 0) {
+					world.AddComponent<MeshRenderer>(e, 1);
+					world.AddComponent<AI>(e);
+				}
+			}
+
+			auto components = world.GetComponents<Position, MeshRenderer, AI>();
+
+			int i = 0;
+			for (auto& [p, m, a] : components) {
+				Assert::IsNotNull(p);
+				Assert::IsNotNull(m);
+				Assert::IsNotNull(a);
+				i++;
+			}
+			Assert::AreEqual(5, i);
+		}
 	};
 }
