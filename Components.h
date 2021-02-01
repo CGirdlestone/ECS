@@ -1,8 +1,14 @@
 #pragma once
 
 #include <fstream>;
+#include "Utils.hpp"
 
-struct Position
+struct ISerializeable {
+	virtual void serialise(std::ofstream& file) = 0;
+	virtual void deserialise(const char* buffer, size_t& offset) = 0;
+};
+
+struct Position : public ISerializeable
 {
 	Position()
 	{
@@ -16,34 +22,48 @@ struct Position
 	};
 
 	float x{ 0.0f }, y{ 0.0f }, z{ 0.0f };
+
+	virtual void serialise(std::ofstream& file) override;
+	virtual void deserialise(const char* buffer, size_t& offset) override;
 };
 
-struct MeshRenderer
+struct MeshRenderer : public ISerializeable
 {
 	MeshRenderer() {};
 	MeshRenderer(unsigned int _id) : id(_id) {};
 	virtual ~MeshRenderer() {};
 	unsigned int id;
+
+	virtual void serialise(std::ofstream& file) override;
+	virtual void deserialise(const char* buffer, size_t& offset) override;
 };
 
-struct AI
+struct AI : public ISerializeable
 {
 	virtual ~AI() {};
+	virtual void serialise(std::ofstream& file) override;
+	virtual void deserialise(const char* buffer, size_t& offset) override;
 };
 
-struct RigidBody
+struct RigidBody : public ISerializeable
 {
 	virtual ~RigidBody() {};
+	virtual void serialise(std::ofstream& file) override;
+	virtual void deserialise(const char* buffer, size_t& offset) override;
 };
 
-struct Sprite
+struct Sprite : public ISerializeable
 {
 	virtual ~Sprite() {};
+	virtual void serialise(std::ofstream& file) override;
+	virtual void deserialise(const char* buffer, size_t& offset) override;
 };
 
-struct Model
+struct Model : public ISerializeable
 {
 	virtual ~Model() {};
+	virtual void serialise(std::ofstream& file) override;
+	virtual void deserialise(const char* buffer, size_t& offset) override;
 };
 
 

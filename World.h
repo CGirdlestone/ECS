@@ -12,6 +12,7 @@
 #include <fstream>
 
 #include "Components.h"
+#include "Utils.hpp"
 
 const int MAX_COMPONENTS{ 40 };
 const int MAX_ENTITIES{ 16382 }; // (2^14 - 1) - 1
@@ -73,12 +74,25 @@ struct Pool
 		num_elements--;
 	}
 
-	void serialize(std::ofstream& file) {
-		// TO DO
+	template <typename Component>
+	void serialise(std::ofstream& file) {
+		utils::serialiseUint32(file, static_cast<uint32_t>(num_elements));
+
+		for (uint16_t i = 0; i < num_elements; i++) {
+			Component* component = get<Component>(i);
+			component->serialise(file);
+		}
 	}
 
-	int deserialize(const char* buffer, int offset) {
-		// TO DO
+	template <typename Component>
+	void deserialise(const char* buffer, size_t& offset) {
+		auto _num_elements = static_cast<uint16_t>(utils::deserialiseUint32(buffer, offset));
+		num_elements = 0; // reset the number of elements;
+		for (uint16_t i = 0; i < _num_elements; i++) {
+			add<Component>();
+			Component* component = get<Component>(i);
+			component->deserialise(buffer, offset);
+		}
 	}
 };
 
@@ -524,11 +538,66 @@ public:
 		return components;
 	}
 
-	void Serialize(std::ofstream& file) {
-		// TO DO
+	template <typename Component>
+	void Serialise(std::ofstream& file) {
+		// serialise component-type specific data (component pool, sparse array and packed array)
+		auto id = GetID<Component>();
+
+		auto& pool = m_component_pools[id];
+		pool.get()->serialise<Component>(file);
+
+		auto& _sparse = m_sparse.at(id);
+		for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+			utils::serialiseUint32(file, static_cast<uint32_t>(_sparse.get()[i]));
+		}
+		auto& _packed = m_packed.at(id);
+		utils::serialiseUint32(file, static_cast<uint32_t>(_packed.size()));
+		std::for_each(_packed.begin(), _packed.end(), [&file](uint16_t e) {utils::serialiseUint32(file, static_cast<uint32_t>(e)); });
 	}
 
-	int Deserialize(const char* buffer, int offset) {
-		// TO DO
+	template <typename Component>
+	void Deserialise(const char* buffer, size_t& offset) {
+		// serialise component-type specific data (component pool, sparse array and packed array)
+		auto id = GetID<Component>();
+
+		auto& pool = m_component_pools[id];
+		pool.get()->deserialise<Component>(buffer, offset);
+
+		auto* _sparse = m_sparse.at(id).get();
+		for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+			_sparse[i] = static_cast<uint16_t>(utils::deserialiseUint32(buffer, offset));
+		}
+
+		auto& _packed = m_packed.at(id);
+		_packed.clear();
+		auto num_packed_elements = utils::deserialiseUint32(buffer, offset);
+		for (uint32_t i = 0; i < num_packed_elements; i++) {
+			_packed.push_back(static_cast<uint16_t>(utils::deserialiseUint32(buffer, offset)));
+		}
+
+	}
+
+	void Serialise(std::ofstream& file) {
+		// serialise the component-type independent data
+		utils::serialiseUint32(file, static_cast<uint32_t>(m_entity_counter));
+		utils::serialiseUint32(file, static_cast<uint32_t>(m_free_entities.size()));
+		std::for_each(m_free_entities.begin(), m_free_entities.end(), [&file](uint32_t x) {utils::serialiseUint32(file, x); });
+
+		for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+			utils::serialiseUint32(file, m_entities[i]);
+		}
+	}
+
+	void Deserialise(const char* buffer, size_t& offset) {
+		// deserialise the component-type independent data
+		m_entity_counter = static_cast<uint16_t>(utils::deserialiseUint32(buffer, offset));
+		auto _num_free_entities = utils::deserialiseUint32(buffer, offset);
+		for (uint32_t i = 0; i < _num_free_entities; i++) {
+			m_free_entities.push_back(utils::deserialiseUint32(buffer, offset));
+		}
+
+		for (uint16_t i = 0; i < MAX_ENTITIES; i++) {
+			m_entities[i] = utils::deserialiseUint32(buffer, offset);
+		}
 	}
 };
